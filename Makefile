@@ -1,5 +1,10 @@
-.PHONY: all
+OUT := ${shell pwd}/out
+
+.PHONY: all clean
 
 all:
-	make -f Makefile.server all
-	make -f Makefile.client all
+	make -f build/Makefile.server all
+	make -f build/Makefile.client all
+
+clean:
+	@rm -rf ${OUT} > /dev/null

@@ -1,0 +1,37 @@
+ROOT := ${shell pwd}
+OUT  := ${ROOT}/out/client
+BIN  := ${ROOT}/out/bin
+SRC  := ${ROOT}/src
+CLI  := ${SRC}/client
+GEN  := ${SRC}/generated
+
+CC       := g++
+CXXFLAGS := -std=c++11 -Wall
+CPPFLAGS := -I/usr/local/include/thrift -I/usr/local/include/boost -I${SRC}
+LDFLAGS  := -lthrift -L/usr/local/lib -Wl,-rpath,/usr/local/lib -pthread
+
+EXEC := "bidirectionalthrift-client"
+
+GENERATED_SRCS := ${shell find ${GEN} ! -name *.skeleton.cpp -name *.cpp}
+GENERATED_OBJS := ${patsubst %.cpp, %.o, ${GENERATED_SRCS}}
+
+CLIENT_SRCS := ${shell find ${CLI} -name *.cpp}
+CLIENT_OBJS := ${patsubst %.cpp, %.o, ${CLIENT_SRCS}}
+
+.PHONY: all prepare clean
+
+all: clean prepare ${EXEC}
+
+${EXEC}: ${GENERATED_OBJS} ${CLIENT_OBJS}
+	${CC} ${CXXFLAGS} ${CPPFLAGS} -o ${BIN}/$@ ${OUT}/*.o ${LDFLAGS}
+
+%.o: %.cpp
+	${CC} ${CXXFLAGS} ${CPPFLAGS} -c $< -o ${OUT}/$(notdir $@)
+
+prepare:
+	@mkdir -p ${OUT} > /dev/null
+	@mkdir -p ${BIN} > /dev/null
+
+clean:
+	@rm -rf ${OUT} > /dev/null
+	@rm -rf ${BIN}/${EXEC} > /dev/null
