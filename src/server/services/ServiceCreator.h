@@ -23,69 +23,61 @@
 //                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include <iostream>
+#ifndef ServiceCreator_H
+#define ServiceCreator_H
 
-// Thrift
-#include <thrift/protocol/TBinaryProtocol.h>
-#include <thrift/server/TSimpleServer.h>
-#include <thrift/transport/TServerSocket.h>
-#include <thrift/transport/TBufferTransports.h>
+#include <iterator>
+#include <string>
 
-// Services
-#include "services/ServiceCreator.h"
-#include "services/service1/Service1Handler.h"
-#include "services/service2/Service2Handler.h"
+#include <thrift/processor/TMultiplexedProcessor.h>
+#include <thrift/stdcxx.h>
 
-// Connection watcher
-#include "common/connection/ServerEventHandler.h"
+#include "server/common/connection/ConnectionWatcher.h"
 
-// Constants
-#include "generated/main_constants.h"
+namespace server {
+namespace services {
 
-using namespace ::std;
+class ServiceCreator {
+public:
+    ServiceCreator() : m_multiplexedProcessor(
+                           apache::thrift::stdcxx::make_shared<apache::thrift::TMultiplexedProcessor>()) {}
 
-using namespace ::apache::thrift;
-using namespace ::apache::thrift::protocol;
-using namespace ::apache::thrift::server;
-using namespace ::apache::thrift::transport;
+    template <typename H, typename P> void addService(const std::string& serviceName) {
+        m_services[serviceName] = new H;
+        m_multiplexedProcessor->registerProcessor(
+            serviceName,
+            apache::thrift::stdcxx::shared_ptr<apache::thrift::TProcessor>(
+                new P(
+                    apache::thrift::stdcxx::shared_ptr<H>(
+                        static_cast<H*>(m_services[serviceName])
+                    )
+                )
+            )
+        );
+    }
 
-using namespace ::generated;
-using namespace ::generated::shared;
+    void removeServices() {
+        std::map<std::string, server::common::connection::ConnectionWatcherBase*>::iterator it;
+        for (it = m_services.begin(); it != m_services.end(); ++it) {
+            delete it->second;
+        }
+    }
 
-using namespace ::server::common::connection;
-using namespace ::server::services;
-using namespace ::server::services::service1;
-using namespace ::server::services::service2;
+    std::map<std::string, server::common::connection::ConnectionWatcherBase*>& getServices() {
+        return m_services;
+    }
 
-static void signalHandler(int sig)
-{
-    cout << "SIGINT" << endl;
-    exit(0); // Properly stop server here
-}
+    apache::thrift::stdcxx::shared_ptr<apache::thrift::TMultiplexedProcessor>& getProcessor() {
+        return m_multiplexedProcessor;
+    }
 
-int main(int argc, char **argv) {
-    //// Signal handler
-    signal(SIGINT, &signalHandler);
+private:
+    std::map<std::string, server::common::connection::ConnectionWatcherBase*> m_services;
+    apache::thrift::stdcxx::shared_ptr<apache::thrift::TMultiplexedProcessor> m_multiplexedProcessor;
+};
 
-    //// Services
-    ServiceCreator serviceCreator;
-    serviceCreator.addService<Service1Handler, Service1Processor>(g_main_constants.SERVICE1_NAME);
-    serviceCreator.addService<Service2Handler, Service2Processor>(g_main_constants.SERVICE2_NAME);
+} // namespace services
+} // namespace server
 
-    //// Server
-    stdcxx::shared_ptr<TServerTransport> transport(new TServerSocket(9090));
-    stdcxx::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory);
-    stdcxx::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory);
-
-    TSimpleServer server(serviceCreator.getProcessor(), transport, transportFactory, protocolFactory);
-    server.setServerEventHandler(stdcxx::shared_ptr<ServerEventHandler>(
-                                    new ServerEventHandler(serviceCreator.getServices())));
-
-    cout << "Server is running ..." << endl;
-    server.serve();
-
-    serviceCreator.removeServices();
-
-    return 0;
-}
+#endif
 
