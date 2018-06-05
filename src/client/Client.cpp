@@ -52,25 +52,25 @@ using namespace ::client::events::service1;
 using namespace ::client::events::service2;
 
 int main(int argc, char **argv) {
-    //// Connect to server
-    stdcxx::shared_ptr<TTransport> socket(new TSocket("localhost", 9090));
-    stdcxx::shared_ptr<TTransport> transport(new TBufferedTransport(socket));
-    stdcxx::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
-    transport->open();
-
-    //// Start incoming messages task
-    const uint32_t maxAcceptedFailures = 10;
-    Service1EventHandler service1EventHandler(maxAcceptedFailures, protocol);
-    Service2EventHandler service2EventHandler(maxAcceptedFailures, protocol);
-
-    //// Send messages to server
-    stdcxx::shared_ptr<TMultiplexedProtocol> mp1(new TMultiplexedProtocol(protocol, g_main_constants.SERVICE1_NAME));
-    Service1Client svc1(mp1);
-
-    stdcxx::shared_ptr<TMultiplexedProtocol> mp2(new TMultiplexedProtocol(protocol, g_main_constants.SERVICE2_NAME));
-    Service2Client svc2(mp2);
-
     try {
+        //// Connect to server
+        stdcxx::shared_ptr<TTransport> socket(new TSocket("localhost", 9090));
+        stdcxx::shared_ptr<TTransport> transport(new TBufferedTransport(socket));
+        stdcxx::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
+        transport->open();
+
+        //// Start incoming messages task
+        const uint32_t maxAcceptedFailures = 10;
+        Service1EventHandler service1EventHandler(maxAcceptedFailures, protocol);
+        Service2EventHandler service2EventHandler(maxAcceptedFailures, protocol);
+
+        //// Send messages to server
+        stdcxx::shared_ptr<TMultiplexedProtocol> mp1(new TMultiplexedProtocol(protocol, g_main_constants.SERVICE1_NAME));
+        Service1Client svc1(mp1);
+
+        stdcxx::shared_ptr<TMultiplexedProtocol> mp2(new TMultiplexedProtocol(protocol, g_main_constants.SERVICE2_NAME));
+        Service2Client svc2(mp2);
+
         Request req;
         req.sleepTime = 5;
         req.myEnum = MyEnum::VAL2;
@@ -90,14 +90,16 @@ int main(int argc, char **argv) {
         //   { Service2, doAsyncSyncWork }
         svc1.doAsyncWork(req);
         svc2.doAsyncWork(req);
+
+        //// Keep client alive
+        service1EventHandler.waitTask(true);
+        service2EventHandler.waitTask(true);
+
+        //// Close connection
+        transport->close();
     } catch (TException& e) {
         cerr << e.what() << endl;
     }
 
-    //// Keep client alive
-    service1EventHandler.waitTask(true);
-    service2EventHandler.waitTask(true);
-
-    //// Close connection
-    transport->close();
+    return 0;
 }

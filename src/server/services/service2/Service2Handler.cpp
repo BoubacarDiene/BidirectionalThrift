@@ -47,7 +47,10 @@ void Service2Handler::doSyncWork(const Request& req) {
     Result result;
     result.value = "{ Service2, doSyncWork }";
     try {
-        m_client->onSyncWorkResult(result);
+        auto functor = [result](Service2EventClient *client) {
+            client->onSyncWorkResult(result);
+        };
+        sendMessageToClients(functor);
     } catch (TException& e) {
         // What to do in this case?
         // - Retry sending result when client will be back
@@ -69,7 +72,10 @@ void Service2Handler::doAsyncWork(const Request& req) {
         Result result;
         result.value = "{ Service2, doAsyncWork }";
         try {
-            m_client->onAsyncWorkResult(result);
+            auto functor = [result](Service2EventClient *client) {
+                client->onAsyncWorkResult(result);
+            };
+            sendMessageToClients(functor);
         } catch (TException& e) {
             // What to do in this case?
             // - Retry sending result when client will be back

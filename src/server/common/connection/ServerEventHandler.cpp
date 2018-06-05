@@ -43,15 +43,17 @@ void* ServerEventHandler::createContext(stdcxx::shared_ptr<TProtocol> input,
                                         stdcxx::shared_ptr<TProtocol> output) {
     (void)input;
 
-    cout << "ServerEventHandler: Client connected" << endl;
+    uint32_t clientId(0);
 
     map<string, ConnectionWatcherBase*>::iterator it;
-    for (it = watchers.begin(); it != watchers.end(); ++it) {
+    for (it = m_watchers.begin(); it != m_watchers.end(); ++it) {
         cout << "Notify observer: " << it->first << endl;
-        it->second->onClientConnected(output);
+        clientId = it->second->onClientConnected(output);
     }
 
-    return NULL;
+    cout << "\"client-" << clientId << "\" connected" << endl;
+
+    return static_cast<void*>(new int(clientId));
 }
 
 /**
@@ -61,15 +63,17 @@ void* ServerEventHandler::createContext(stdcxx::shared_ptr<TProtocol> input,
 void ServerEventHandler::deleteContext(void* serverContext,
                                        stdcxx::shared_ptr<TProtocol> input,
                                        stdcxx::shared_ptr<TProtocol> output) {
-    (void)serverContext;
     (void)input;
     (void)output;
 
-    cout << "ServerEventHandler: Client disconnected" << endl;
+    int *clientId = static_cast<int*>(serverContext);
+    cout << "\"client-" << *clientId << "\" disconnected" << endl;
 
     map<string, ConnectionWatcherBase*>::iterator it;
-    for (it = watchers.begin(); it != watchers.end(); ++it) {
+    for (it = m_watchers.begin(); it != m_watchers.end(); ++it) {
         cout << "Notify observer: " << it->first << endl;
-        it->second->onClientDisconnected();
+        it->second->onClientDisconnected(*clientId);
     }
+
+    delete clientId;
 }

@@ -26,8 +26,10 @@
 #include <iostream>
 
 // Thrift
+#include <thrift/concurrency/ThreadManager.h>
+#include <thrift/concurrency/PlatformThreadFactory.h>
 #include <thrift/protocol/TBinaryProtocol.h>
-#include <thrift/server/TSimpleServer.h>
+#include <thrift/server/TThreadPoolServer.h>
 #include <thrift/transport/TServerSocket.h>
 #include <thrift/transport/TBufferTransports.h>
 
@@ -45,6 +47,7 @@
 using namespace ::std;
 
 using namespace ::apache::thrift;
+using namespace apache::thrift::concurrency;
 using namespace ::apache::thrift::protocol;
 using namespace ::apache::thrift::server;
 using namespace ::apache::thrift::transport;
@@ -59,7 +62,7 @@ using namespace ::server::services::service2;
 
 static void signalHandler(int sig)
 {
-    cout << "SIGINT" << endl;
+    cout << sig << endl;
     exit(0); // Properly stop server here
 }
 
@@ -77,7 +80,13 @@ int main(int argc, char **argv) {
     stdcxx::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory);
     stdcxx::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory);
 
-    TSimpleServer server(serviceCreator.getProcessor(), transport, transportFactory, protocolFactory);
+    const int workerCount = 2; // Up to 2 simultaneous connections accepted
+    stdcxx::shared_ptr<ThreadManager> threadManager = ThreadManager::newSimpleThreadManager(workerCount);
+    threadManager->threadFactory(stdcxx::make_shared<PlatformThreadFactory>());
+    threadManager->start();
+
+    TThreadPoolServer server(serviceCreator.getProcessor(), transport, transportFactory,
+                                                            protocolFactory, threadManager);
     server.setServerEventHandler(stdcxx::shared_ptr<ServerEventHandler>(
                                     new ServerEventHandler(serviceCreator.getServices())));
 

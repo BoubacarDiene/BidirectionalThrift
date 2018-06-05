@@ -40,7 +40,8 @@ namespace connection {
 
 class ServerEventHandler : public apache::thrift::server::TServerEventHandler {
 public:
-    ServerEventHandler(const std::map<std::string, ConnectionWatcherBase*>& services) : watchers(services) {}
+    ServerEventHandler(const std::map<std::string,
+                       ConnectionWatcherBase*>& services) : m_watchers(services) {}
 
     // Called by thrift when client is connected
     void* createContext(apache::thrift::stdcxx::shared_ptr<apache::thrift::protocol::TProtocol> input,
@@ -52,7 +53,7 @@ public:
                        apache::thrift::stdcxx::shared_ptr<apache::thrift::protocol::TProtocol> output);
 
 private:
-    std::map<std::string, ConnectionWatcherBase*> watchers;
+    std::map<std::string, ConnectionWatcherBase*> m_watchers;
 };
 
 } // namespace connection

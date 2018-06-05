@@ -63,17 +63,17 @@ public:
         }
     }
 
-    std::map<std::string, server::common::connection::ConnectionWatcherBase*>& getServices() {
+    const std::map<std::string, server::common::connection::ConnectionWatcherBase*>& getServices() const {
         return m_services;
     }
 
-    apache::thrift::stdcxx::shared_ptr<apache::thrift::TMultiplexedProcessor>& getProcessor() {
+    const apache::thrift::stdcxx::shared_ptr<apache::thrift::TMultiplexedProcessor>& getProcessor() const {
         return m_multiplexedProcessor;
     }
 
 private:
     std::map<std::string, server::common::connection::ConnectionWatcherBase*> m_services;
-    apache::thrift::stdcxx::shared_ptr<apache::thrift::TMultiplexedProcessor> m_multiplexedProcessor;
+    const apache::thrift::stdcxx::shared_ptr<apache::thrift::TMultiplexedProcessor> m_multiplexedProcessor;
 };
 
 } // namespace services

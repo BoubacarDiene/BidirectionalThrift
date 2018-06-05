@@ -26,6 +26,8 @@
 #ifndef ConnectionWatcher_H
 #define ConnectionWatcher_H
 
+#include <iterator>
+
 #include <thrift/protocol/TProtocol.h>
 
 namespace server {
@@ -36,25 +38,56 @@ class ConnectionWatcherBase {
 public:
     virtual ~ConnectionWatcherBase() {}
 
-    virtual void onClientConnected(const apache::thrift::stdcxx::shared_ptr<apache::thrift::protocol::TProtocol>& protocol) = 0;
-    virtual void onClientDisconnected() = 0;
+    virtual uint32_t onClientConnected(const apache::thrift::stdcxx::shared_ptr<apache::thrift::protocol::TProtocol>& protocol) = 0;
+    virtual void onClientDisconnected(const uint32_t clientId) = 0;
+};
+
+class ConnectionWatcherMessageSender {
+public:
+    virtual ~ConnectionWatcherMessageSender() {}
+
+    template<typename Functor>
+    void sendMessageToClients(Functor functor);
 };
 
 template <typename T>
-class ConnectionWatcher : public ConnectionWatcherBase {
+class ConnectionWatcher : public ConnectionWatcherBase,
+                          public ConnectionWatcherMessageSender {
 public:
+    ConnectionWatcher() : m_nbConnectedClients(0) {}
     virtual ~ConnectionWatcher() {}
 
-    virtual void onClientConnected(const apache::thrift::stdcxx::shared_ptr<apache::thrift::protocol::TProtocol>& protocol) {
-        m_client = new T(protocol);
+    virtual uint32_t onClientConnected(const apache::thrift::stdcxx::shared_ptr<apache::thrift::protocol::TProtocol>& protocol) {
+        uint32_t clientId = ++m_nbConnectedClients;
+
+        std::string name("client-" + std::to_string(clientId));
+        m_clients[name] = new T(protocol);
+
+        return clientId;
     }
 
-    virtual void onClientDisconnected() {
-        delete m_client;
+    virtual void onClientDisconnected(const uint32_t clientId) {
+        std::string name("client-" + std::to_string(clientId));
+
+        delete m_clients[name];
+        m_clients.erase(name);
+
+        m_nbConnectedClients = m_clients.size() == 0 ? 0 : m_nbConnectedClients;
+    }
+
+    template<typename Functor>
+    void sendMessageToClients(Functor functor) {
+        typename std::map<std::string, T*>::iterator it;
+        for (it = m_clients.begin(); it != m_clients.end(); ++it) {
+            functor(it->second);
+        }
     }
 
 protected:
-    T *m_client;
+    std::map<std::string, T*> m_clients;
+
+private:
+    uint32_t m_nbConnectedClients;
 };
 
 } // namespace connection
